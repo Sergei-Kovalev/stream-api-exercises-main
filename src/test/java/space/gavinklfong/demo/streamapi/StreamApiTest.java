@@ -174,7 +174,7 @@ public class StreamApiTest {
 				.collect(Collectors.toList());
 
 		long endTime = System.currentTimeMillis();
-		log.info(String.format("exercise 6 - execution time: %1$d ms", (endTime - startTime)));
+		log.info(String.format("exercise 8 - execution time: %1$d ms", (endTime - startTime)));
 		result.forEach(o -> log.info(o.toString()));
 	}
 
@@ -191,7 +191,7 @@ public class StreamApiTest {
 				.collect(Collectors.toList());
 
 		long endTime = System.currentTimeMillis();
-		log.info(String.format("exercise 7 - execution time: %1$d ms", (endTime - startTime)));
+		log.info(String.format("exercise 9 - execution time: %1$d ms", (endTime - startTime)));
 		result.forEach(o -> log.info(o.toString()));
 	}
 
@@ -208,7 +208,7 @@ public class StreamApiTest {
 				.sum();
 
 		long endTime = System.currentTimeMillis();
-		log.info(String.format("exercise 8 - execution time: %1$d ms", (endTime - startTime)));
+		log.info(String.format("exercise 10 - execution time: %1$d ms", (endTime - startTime)));
 		log.info("Total lump sum = " + result);
 	}
 

@@ -12,9 +12,11 @@ import space.gavinklfong.demo.streamapi.repos.OrderRepo;
 import space.gavinklfong.demo.streamapi.repos.ProductRepo;
 
 import javax.transaction.Transactional;
-import java.util.Comparator;
-import java.util.List;
+import java.time.LocalDate;
+import java.util.*;
+import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -30,7 +32,7 @@ public class AppCommandRunner implements CommandLineRunner {
 
 	@Transactional
 	@Override
-	public void run(String... args) throws Exception {
+	public void run(String... args) {
 		List<Customer> customers = customerRepos.findAll();
 
 		List<Order> orders = orderRepos.findAll();
@@ -113,65 +115,174 @@ public class AppCommandRunner implements CommandLineRunner {
 		System.out.println(DIVIDING_LINE);
 		System.out.println("6. Получите список продуктов, заказанных клиентом уровня 2 в период с 1 февраля 2021 г. по 1 апреля 2021 г.");
 
+		products.stream()
+				.filter(product -> product.getOrders().stream()
+						.anyMatch(order -> order.getCustomer().getTier().equals(2)
+								&& order.getOrderDate().isAfter(LocalDate.of(2021, 2, 1))
+								&& order.getOrderDate().isBefore(LocalDate.of(2021, 4, 1))
+						))
+				.collect(Collectors.toList())
+				.forEach(System.out::println);
+
 		// 7.
 		System.out.println(DIVIDING_LINE);
 		System.out.println("7. Получите 3 самых дешевых товара категории «Books»");
+
+		products.stream()
+				.filter(product -> product.getCategory().equals("Books"))
+				.sorted(Comparator.comparingDouble(Product::getPrice))
+				.limit(3)
+				.collect(Collectors.toList())
+				.forEach(System.out::println);
 
 		// 8.
 		System.out.println(DIVIDING_LINE);
 		System.out.println("8. Получите 3 последних размещенных заказа");
 
+		orders.stream()
+				.sorted(Comparator.comparing(Order::getOrderDate).reversed())
+				.limit(3)
+				.collect(Collectors.toList())
+				.forEach(System.out::println);
+
 		// 9.
 		System.out.println(DIVIDING_LINE);
 		System.out.println("9. Получите список товаров, которые были заказаны 15 марта 2021 г.");
+
+		orders.stream()
+				.filter(order -> order.getOrderDate().isEqual(LocalDate.of(2021, 3, 15)))
+				.flatMap(order -> order.getProducts().stream())
+				.distinct()
+				.sorted(Comparator.comparingLong(Product::getId))
+				.collect(Collectors.toList())
+				.forEach(System.out::println);
 
 		// 10.
 		System.out.println(DIVIDING_LINE);
 		System.out.println("10. Подсчитайте общую сумму всех заказов, размещенных в феврале 2021 г.");
 
+		double sumOfFebruaryOrders = orders.stream()
+				.filter(order -> order.getOrderDate().isAfter(LocalDate.of(2021, 1, 31))
+						&& order.getOrderDate().isBefore(LocalDate.of(2021, 3, 1)))
+				.flatMap(order -> order.getProducts().stream())
+				.mapToDouble(Product::getPrice)
+				.sum();
+		System.out.println(sumOfFebruaryOrders);
+
 		// 11.
 		System.out.println(DIVIDING_LINE);
-		System.out.println("11. Подсчитайте общую сумму всех заказов, размещенных в феврале 2021 г. (используя сокращение с помощью BiFunction).");
+		System.out.println("11. Подсчитайте общую сумму всех заказов, размещенных в феврале 2021 г. (используя reduce() с помощью BiFunction).");
+
+		BiFunction<Double, Product, Double> accumulator = (acc, product) -> acc + product.getPrice();
+
+		Double sumOfFO = orders.stream()
+				.filter(order -> order.getOrderDate().isAfter(LocalDate.of(2021, 1, 31))
+						&& order.getOrderDate().isBefore(LocalDate.of(2021, 3, 1)))
+				.flatMap(order -> order.getProducts().stream())
+				.reduce(0.0, accumulator, Double::sum);
+		System.out.println(sumOfFO);
 
 		// 12.
 		System.out.println(DIVIDING_LINE);
 		System.out.println("12. Рассчитайте среднюю цену всех заказов, размещенных 15 марта 2021 г.");
 
+		double avgPrice = orders.stream()
+				.filter(order -> order.getOrderDate().isEqual(LocalDate.of(2021, 3, 15)))
+				.flatMapToDouble(
+						order -> order.getProducts().stream()
+								.mapToDouble(Product::getPrice))
+				.average()
+				.orElse(0.0);
+
+		System.out.println(avgPrice);
+
 		// 13.
 		System.out.println(DIVIDING_LINE);
 		System.out.println("13. Получите сводную статистику по всем продуктам категории «Книги».");
+
+		DoubleSummaryStatistics statistics = products.stream()
+				.filter(product -> product.getCategory().equals("Books"))
+				.mapToDouble(Product::getPrice)
+				.summaryStatistics();
+		System.out.println(statistics);
 
 		// 14.
 		System.out.println(DIVIDING_LINE);
 		System.out.println("14. Получите Map -> id заказа : количество продуктов в заказе.");
 
+		orders.stream()
+				.collect(Collectors.toMap(Order::getId, order -> order.getProducts().size()))
+				.entrySet()
+				.forEach(System.out::println);
+
 		// 15.
 		System.out.println(DIVIDING_LINE);
 		System.out.println("15. Получить Map -> клиент : список заказов");
+
+		orders.stream()
+				.collect(Collectors.groupingBy(Order::getCustomer))
+				.entrySet()
+				.forEach(System.out::println);
 
 		// 16.
 		System.out.println(DIVIDING_LINE);
 		System.out.println("16. Получите Map -> customer_id : список order_id(ов)");
 
+		orders.stream()
+				.collect(Collectors.groupingBy(
+						order -> order.getCustomer().getId(),
+//						HashMap::new,
+						Collectors.mapping(Order::getId, Collectors.toList())
+				))
+				.entrySet()
+				.forEach(System.out::println);
+
 		// 17.
 		System.out.println(DIVIDING_LINE);
 		System.out.println("17. Получите Map -> заказ : его общая стоимость.");
+
+		orders.stream()
+				.collect(Collectors.toMap(Function.identity(), o -> o.getProducts().stream()
+						.mapToDouble(Product::getPrice).sum()))
+				.entrySet()
+				.forEach(System.out::println);
 
 		// 18.
 		System.out.println(DIVIDING_LINE);
 		System.out.println("18. Получите Map -> заказ : его общая стоимость (с помощью reduce())");
 
+		orders.stream()
+				.collect(Collectors.toMap(Function.identity(), order -> order.getProducts().stream()
+						.reduce(0.0, (acc, p) -> acc + p.getPrice(), Double::sum)))
+				.entrySet().forEach(System.out::println);
+
 		// 19.
 		System.out.println(DIVIDING_LINE);
 		System.out.println("19. Получите Map -> с названиями продуктов по категориям");
+
+		products.stream()
+				.collect(Collectors.groupingBy(
+						Product::getCategory, Collectors.mapping(
+								Product::getName, Collectors.toList())))
+				.entrySet().forEach(System.out::println);
 
 		// 20.
 		System.out.println(DIVIDING_LINE);
 		System.out.println("20. Получите самый дорогой товар в каждой категории");
 
+		products.stream()
+                .collect(Collectors.groupingBy(
+                        Product::getCategory, Collectors.maxBy(Comparator.comparingDouble(Product::getPrice))))
+                .forEach((key, value) -> value.ifPresent(product -> System.out.printf("Category: %s, Price: %s\n", key, product.getPrice())));
+
 		// 21.
 		System.out.println(DIVIDING_LINE);
 		System.out.println("21. Получите самый дорогой товар (выбрать только названия) в каждой категории.");
-	}
 
+		products.stream()
+				.collect(Collectors.groupingBy(Product::getCategory, Collectors.maxBy(Comparator.comparingDouble(Product::getPrice))))
+				.entrySet().stream()
+				.collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().orElseThrow().getName()))
+				.entrySet().forEach(System.out::println);
+	}
 }
